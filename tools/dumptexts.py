@@ -14,6 +14,7 @@ import json
 import os
 import pickle
 import urllib2
+import sys
 
 def normalize(s):
     # Unescape html
@@ -41,7 +42,7 @@ def loadurl(url):
     return html
 
 def get_text(text_id):
-    url = "http://typeracerdata.com/text?id=%s" % text_id
+    url = ("http://typeracerdata.com/text?id=%s" % text_id) + "&universe=" + os.environ['EXTRACT_LANG']
     html = loadurl(url)
     return html
 
@@ -78,6 +79,14 @@ Russel</p>
     while author[0] in ", ":
         author = author[1:].strip()
 
+    html = skip(html, "<p>")
+    date = extract(html, "</p>").strip()
+
+    print "DATE"
+    print date
+    if not any(word in date for word in ["2018", "2019", "2020"]):
+        return "", "", ""
+
     prefixes = (
         "a",
         "book",
@@ -107,7 +116,7 @@ def readquote(text_id):
 
         return author, title, quote, text_id
 
-def read_ids(url="http://www.typeracerdata.com/texts"):
+def read_ids(url="http://typeracerdata.com/texts?universe=" + os.environ['EXTRACT_LANG']):
     html = loadurl(url)
 
     ids = set()
@@ -117,7 +126,7 @@ def read_ids(url="http://www.typeracerdata.com/texts"):
             continue
         start = line.index(find)
         stop = line.index('"', start + len(find))
-        text_id = int(line[start + len(find):stop])
+        text_id = int(line[start + len(find):stop].replace('&universe=' + os.environ['EXTRACT_LANG'], ''))
         ids.add(text_id)
 
     return ids
@@ -128,7 +137,7 @@ def make_tuple(quotes):
 def get_difficulty(verbose=False):
     print("Reading list of quote scores")
 
-    html = loadurl("http://www.typeracerdata.com/texts?sort=relative_average")
+    html = loadurl("http://typeracerdata.com/texts?sort=average_wpm&universe=lang_de")
 
     scores = {}
     text_id = None
@@ -191,7 +200,7 @@ def get_texts(verbose=False, threads=1):
     for author, title, quote, text_id in results:
         quotes.append([author, title, quote, text_id])
 
-    filename = "../wpm/data/examples.json.gz"
+    filename = "../wpm/data/" + os.environ['EXTRACT_LANG'] + ".json.gz"
 
     try:
         with gzip.open(filename) as f:
